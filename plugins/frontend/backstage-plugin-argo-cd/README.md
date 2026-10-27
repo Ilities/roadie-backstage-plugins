@@ -165,6 +165,19 @@ metadata:
     argocd/app-namespace: my-test-ns
 ```
 
+### Per-instance namespaces
+
+When you manage multiple Argo CD instances and the same app lives in a different namespace on each instance, you can set the namespace per instance by suffixing the annotation with the instance name (the `name` configured under `argocd.appLocatorMethods[].instances[].name`):
+
+```yaml
+metadata:
+  annotations:
+    argocd/app-namespace/myprod-cluster: aoa1
+    argocd/app-namespace/my-non-prod-cluster: aoa2
+```
+
+The plain `argocd/app-namespace` annotation keeps working as a fallback and is used for instances that have no dedicated annotation (and for the initial "find" lookup across instances). A per-instance annotation takes precedence over the generic one for that instance.
+
 ## Limit the number of revisions to load
 
 The `ArgoCDHistoryCard` loads all app revisions by default. If your app has many revisions, this can lead to a lot of requests and long loading times. Therefore, you can limit the number of revisions to load in your configuration file:

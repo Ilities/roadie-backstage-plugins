@@ -293,15 +293,22 @@ const ArgoCDDetails = ({
   title?: string;
   subtitle?: string;
 }) => {
-  const { url, appName, appSelector, appNamespace, projectName } =
-    useArgoCDAppData({
-      entity,
-    });
+  const {
+    url,
+    appName,
+    appSelector,
+    appNamespace,
+    getAppNamespace,
+    projectName,
+  } = useArgoCDAppData({
+    entity,
+  });
   const { loading, value, error, retry } = useAppDetails({
     url,
     appName,
     appSelector,
     appNamespace,
+    getAppNamespace,
     projectName,
   });
   if (loading) {

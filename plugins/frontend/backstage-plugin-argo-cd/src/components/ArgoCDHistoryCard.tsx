@@ -79,13 +79,20 @@ const ArgoCDHistory = ({ entity }: { entity: Entity }) => {
   const [tableRows, setTableRows] = useState<ArgoCDHistoryTableRow[]>([]);
 
   const argoCDApi = useApi(argoCDApiRef);
-  const { url, appName, appSelector, appNamespace, projectName } =
-    useArgoCDAppData({ entity });
+  const {
+    url,
+    appName,
+    appSelector,
+    appNamespace,
+    getAppNamespace,
+    projectName,
+  } = useArgoCDAppData({ entity });
   const { loading, value, error, retry } = useAppDetails({
     url,
     appName,
     appSelector,
     appNamespace,
+    getAppNamespace,
     projectName,
   });
 
