@@ -19,6 +19,7 @@ import { Entity } from '@backstage/catalog-model';
 export const ARGOCD_ANNOTATION_APP_NAME = 'argocd/app-name';
 export const ARGOCD_ANNOTATION_APP_SELECTOR = 'argocd/app-selector';
 export const ARGOCD_ANNOTATION_APP_NAMESPACE = 'argocd/app-namespace';
+export const ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX = 'argocd/app-namespace/';
 export const ARGOCD_ANNOTATION_PROJECT_NAME = 'argocd/project-name';
 export const ARGOCD_ANNOTATION_PROXY_URL = 'argocd/proxy-url';
 
@@ -34,6 +35,25 @@ export const useArgoCDAppData = ({ entity }: { entity: Entity }) => {
   const url =
     entity?.metadata.annotations?.[ARGOCD_ANNOTATION_PROXY_URL] ??
     '/argocd/api';
+  const appNamespaceByInstance: Record<string, string> = {};
+  for (const [key, value] of Object.entries(
+    entity?.metadata.annotations ?? {},
+  )) {
+    if (key.startsWith(ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX)) {
+      const instanceName = key.slice(
+        ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX.length,
+      );
+      if (instanceName && value) {
+        appNamespaceByInstance[instanceName] = value;
+      }
+    }
+  }
+  const getAppNamespace = (instanceName?: string) => {
+    if (instanceName && appNamespaceByInstance[instanceName]) {
+      return appNamespaceByInstance[instanceName];
+    }
+    return appNamespace;
+  };
   if (!(appName || appSelector || projectName)) {
     throw new Error("'argocd' annotation is missing");
   } else if (appName && (appSelector || projectName)) {
@@ -41,5 +61,13 @@ export const useArgoCDAppData = ({ entity }: { entity: Entity }) => {
       "Cannot provide both 'argocd/app-name' and 'argocd-app' annotations",
     );
   }
-  return { url, appName, appSelector, appNamespace, projectName };
+  return {
+    url,
+    appName,
+    appSelector,
+    appNamespace,
+    appNamespaceByInstance,
+    getAppNamespace,
+    projectName,
+  };
 };

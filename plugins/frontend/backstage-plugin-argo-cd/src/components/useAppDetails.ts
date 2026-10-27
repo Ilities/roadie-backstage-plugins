@@ -22,18 +22,23 @@ export const useAppDetails = ({
   appName,
   appSelector,
   appNamespace,
+  getAppNamespace,
   projectName,
   url,
 }: {
   appName?: string;
   appSelector?: string;
   appNamespace?: string;
+  getAppNamespace?: (instanceName?: string) => string | undefined;
   projectName?: string;
   url: string;
 }) => {
   const api = useApi(argoCDApiRef);
   const errorApi = useApi(errorApiRef);
   const configApi = useApi(configApiRef);
+
+  const resolveNamespace = (instanceName?: string) =>
+    getAppNamespace ? getAppNamespace(instanceName) : appNamespace;
 
   const { loading, value, error, retry } = useAsyncRetry(async () => {
     const argoSearchMethod: boolean = Boolean(
@@ -53,7 +58,7 @@ export const useAppDetails = ({
           const apiOut = await api.getAppDetails({
             url,
             appName,
-            appNamespace,
+            appNamespace: resolveNamespace(instance.name),
             instance: instance.name,
           });
           if (!apiOut.metadata) {
@@ -82,7 +87,7 @@ export const useAppDetails = ({
           return api.getAppListDetails({
             url,
             appSelector,
-            appNamespace,
+            appNamespace: resolveNamespace(instance.name),
             instance: instance.name,
           });
         });
