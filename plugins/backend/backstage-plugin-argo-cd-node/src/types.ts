@@ -180,6 +180,7 @@ export interface ArgoServiceApi {
     name?: string;
     selector?: string;
     namespace?: string;
+    namespaces?: { [instanceName: string]: string };
   }) => Promise<findArgoAppResp[]>;
   updateArgoProjectAndApp: (
     props: UpdateArgoProjectAndAppProps,

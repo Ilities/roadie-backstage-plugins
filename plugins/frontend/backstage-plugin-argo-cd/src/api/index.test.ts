@@ -228,5 +228,57 @@ describe('API calls', () => {
 
       expect(response).toEqual(getServiceListStub);
     });
+
+    it('fetches namespaced applications using per-instance namespaces', async () => {
+      const client = new ArgoCDApiClient({
+        discoveryApi: getDiscoveryApiStub,
+        backendBaseUrl: '',
+        searchInstances: true,
+        identityApi: getIdentityApiStub,
+        useNamespacedApps: true,
+      });
+
+      const response = await client.serviceLocatorUrl({
+        appSelector: 'app=test',
+        appNamespace: 'fallback-ns',
+        appNamespaces: {
+          argoInstance1: 'instance-one-ns',
+          argoInstance2: 'instance-two-ns',
+        },
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/argocd/find/selector/app%3Dtest?appNamespace=fallback-ns&appNamespace%2FargoInstance1=instance-one-ns&appNamespace%2FargoInstance2=instance-two-ns',
+        expect.objectContaining({
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer fake-id-token`,
+          },
+        }),
+      );
+
+      expect(response).toEqual(getServiceListStub);
+    });
+
+    it('does not send per-instance namespaces when namespaced apps are disabled', async () => {
+      const client = new ArgoCDApiClient({
+        discoveryApi: getDiscoveryApiStub,
+        backendBaseUrl: '',
+        searchInstances: true,
+        identityApi: getIdentityApiStub,
+        useNamespacedApps: false,
+      });
+
+      await client.serviceLocatorUrl({
+        appName: 'test',
+        appNamespace: 'fallback-ns',
+        appNamespaces: { argoInstance1: 'instance-one-ns' },
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/argocd/find/name/test',
+        expect.anything(),
+      );
+    });
   });
 });

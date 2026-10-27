@@ -178,6 +178,7 @@ export class ArgoService implements ArgoServiceApi {
     name?: string;
     selector?: string;
     namespace?: string;
+    namespaces?: { [instanceName: string]: string };
   }): Promise<findArgoAppResp[]> {
     if (!options.name && !options.selector) {
       throw new Error('name or selector is required');
@@ -200,7 +201,11 @@ export class ArgoService implements ArgoServiceApi {
             argoInstance.url,
             argoInstance.name,
             token,
-            options,
+            {
+              ...options,
+              namespace:
+                options.namespaces?.[argoInstance.name] ?? options.namespace,
+            },
           );
         } catch (error: any) {
           this.logger.error(

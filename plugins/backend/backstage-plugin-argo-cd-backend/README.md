@@ -17,6 +17,8 @@ If you want to create multiple components that fetch data from different argoCD 
 
 The Argo plugin will fetch the Argo CD instances an app is deployed to and use the backstage-plugin-argo-cd-backend plugin to reach out to each Argo instance based on the mapping mentioned below.
 
+When using the "Applications in any namespace" feature, you can configure a different application namespace per instance on the catalog entity with `argocd/app-namespace/<instance-name>` annotations. The backend uses the namespace configured for the matching instance, falling back to the shared `argocd/app-namespace` annotation when needed.
+
 ```yml
 argocd:
   username: ${ARGOCD_USERNAME}

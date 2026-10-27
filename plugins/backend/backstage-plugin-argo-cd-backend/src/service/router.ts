@@ -10,6 +10,21 @@ export interface RouterOptions {
   config: Config;
   argocdService: ArgoServiceApi;
 }
+const APP_NAMESPACE_QUERY_PARAM = 'appNamespace';
+const APP_NAMESPACE_QUERY_PARAM_PREFIX = `${APP_NAMESPACE_QUERY_PARAM}/`;
+
+const getAppNamespaces = (query: Record<string, unknown>) => {
+  const appNamespaces: { [instanceName: string]: string } = {};
+  Object.entries(query).forEach(([key, value]) => {
+    if (
+      key.startsWith(APP_NAMESPACE_QUERY_PARAM_PREFIX) &&
+      typeof value === 'string'
+    ) {
+      appNamespaces[key.slice(APP_NAMESPACE_QUERY_PARAM_PREFIX.length)] = value;
+    }
+  });
+  return appNamespaces;
+};
 export type Response = {
   status: string;
   message: string;
@@ -99,6 +114,7 @@ export function createRouter({
       await argocdService.findArgoApp({
         name: argoAppName as string,
         namespace: argoAppNamespace as string,
+        namespaces: getAppNamespaces(request.query),
       }),
     );
   });
@@ -180,6 +196,7 @@ export function createRouter({
       await argocdService.findArgoApp({
         selector: argoAppSelector,
         namespace: argoAppNamespace as string,
+        namespaces: getAppNamespaces(request.query),
       }),
     );
   });

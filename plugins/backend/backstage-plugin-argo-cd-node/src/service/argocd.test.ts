@@ -1736,6 +1736,52 @@ describe('ArgoCD service', () => {
       ]);
     });
 
+    it('should use the namespace configured for the matching instance', async () => {
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          metadata: {
+            name: 'testApp-nonprod',
+            namespace: 'instance-one-ns',
+            status: {},
+          },
+        }),
+      );
+
+      await argoService.findArgoApp({
+        name: 'testApp-nonprod',
+        namespace: 'fallback-ns',
+        namespaces: { argoinstance1: 'instance-one-ns' },
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('appNamespace=instance-one-ns'),
+        expect.anything(),
+      );
+    });
+
+    it('should fall back to the shared namespace when the instance has no namespace', async () => {
+      fetchMock.mockResponseOnce(
+        JSON.stringify({
+          metadata: {
+            name: 'testApp-nonprod',
+            namespace: 'fallback-ns',
+            status: {},
+          },
+        }),
+      );
+
+      await argoService.findArgoApp({
+        name: 'testApp-nonprod',
+        namespace: 'fallback-ns',
+        namespaces: { anotherInstance: 'another-ns' },
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('appNamespace=fallback-ns'),
+        expect.anything(),
+      );
+    });
+
     it('should return an empty array even when the request fails', async () => {
       fetchMock.mockRejectOnce(new Error());
       expect(await argoService.findArgoApp({ name: 'test-app' })).toStrictEqual(

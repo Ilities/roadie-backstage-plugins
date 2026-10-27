@@ -135,6 +135,44 @@ const apisScanMultipleInstances: [AnyApiRef, Partial<unknown>][] = [
   [translationApiRef, mockApis.translation()],
 ];
 
+const apisScanMultipleInstancesNamespaced: [AnyApiRef, Partial<unknown>][] = [
+  [
+    configApiRef,
+    new ConfigReader({
+      argocd: {
+        namespacedApps: true,
+        appLocatorMethods: [
+          {
+            type: 'config',
+            instances: [
+              {
+                url: 'https://testrancher.com',
+                name: 'argoInstance1',
+              },
+              {
+                url: 'https://testranchertwo.com',
+                name: 'argoInstance2',
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  ],
+  [errorApiRef, errorApiMock],
+  [
+    argoCDApiRef,
+    new ArgoCDApiClient({
+      discoveryApi,
+      identityApi: getIdentityApiStub,
+      backendBaseUrl: 'https://testbackend.com',
+      searchInstances: true,
+      useNamespacedApps: true,
+    }),
+  ],
+  [translationApiRef, mockApis.translation()],
+];
+
 describe('argo-cd', () => {
   const worker = setupServer();
   beforeAll(() => worker.listen());
@@ -1132,6 +1170,85 @@ describe('argo-cd', () => {
       expect(apps).toHaveLength(3);
       expect(rendered.queryByText('argoInstance2')).toBeNull();
     });
+    it('should use a different app namespace for each instance', async () => {
+      const entityWithPerInstanceNamespaces = {
+        ...getEntityStubWithAppSelector,
+        metadata: {
+          ...getEntityStubWithAppSelector.metadata,
+          annotations: {
+            ...getEntityStubWithAppSelector.metadata.annotations,
+            'argocd/app-namespace': 'fallback-ns',
+            'argocd/app-namespace/argoInstance1': 'instance-one-ns',
+            'argocd/app-namespace/argoInstance2': 'instance-two-ns',
+          },
+        },
+      };
+
+      worker.use(
+        rest.get(
+          'https://testbackend.com/api/argocd/find/selector/name%3dguestbook',
+          (req, res, ctx) => {
+            expect(req.url.searchParams.get('appNamespace')).toBe(
+              'fallback-ns',
+            );
+            expect(req.url.searchParams.get('appNamespace/argoInstance1')).toBe(
+              'instance-one-ns',
+            );
+            expect(req.url.searchParams.get('appNamespace/argoInstance2')).toBe(
+              'instance-two-ns',
+            );
+            return res(
+              ctx.json([
+                {
+                  name: 'argoInstance1',
+                  url: 'https://argocd-argoInstance1.com',
+                },
+                {
+                  name: 'argoInstance2',
+                  url: 'https://argocd-argoInstance2.com',
+                },
+              ]),
+            );
+          },
+        ),
+      );
+      worker.use(
+        rest.get(
+          'https://testbackend.com/api/argocd/argoInstance/argoInstance1/applications/selector/name%3dguestbook',
+          (req, res, ctx) => {
+            const namespace = req.url.searchParams.get('appNamespace');
+            if (namespace !== 'instance-one-ns') {
+              return res(ctx.status(400));
+            }
+            return res(ctx.json(getResponseStubAppListForInstanceOne));
+          },
+        ),
+      );
+      worker.use(
+        rest.get(
+          'https://testbackend.com/api/argocd/argoInstance/argoInstance2/applications/selector/name%3dguestbook',
+          (req, res, ctx) => {
+            const namespace = req.url.searchParams.get('appNamespace');
+            if (namespace !== 'instance-two-ns') {
+              return res(ctx.status(400));
+            }
+            return res(ctx.json(getResponseStubAppListForInstanceTwo()));
+          },
+        ),
+      );
+
+      const rendered = render(
+        <TestApiProvider apis={apisScanMultipleInstancesNamespaced}>
+          <EntityProvider entity={entityWithPerInstanceNamespaces}>
+            <ArgoCDDetailsCard />
+          </EntityProvider>
+        </TestApiProvider>,
+      );
+
+      expect(await rendered.findByText('argoInstance1')).toBeInTheDocument();
+      expect(await rendered.findByText('argoInstance2')).toBeInTheDocument();
+    });
+
     it('should display an empty table when receiving no data from multiple instances', async () => {
       worker.use(
         rest.get(

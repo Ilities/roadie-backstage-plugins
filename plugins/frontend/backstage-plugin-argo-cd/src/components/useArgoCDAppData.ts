@@ -19,18 +19,30 @@ import { Entity } from '@backstage/catalog-model';
 export const ARGOCD_ANNOTATION_APP_NAME = 'argocd/app-name';
 export const ARGOCD_ANNOTATION_APP_SELECTOR = 'argocd/app-selector';
 export const ARGOCD_ANNOTATION_APP_NAMESPACE = 'argocd/app-namespace';
+export const ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX = `${ARGOCD_ANNOTATION_APP_NAMESPACE}/`;
 export const ARGOCD_ANNOTATION_PROJECT_NAME = 'argocd/project-name';
 export const ARGOCD_ANNOTATION_PROXY_URL = 'argocd/proxy-url';
 
+export type AppNamespaces = { [instanceName: string]: string };
+
 export const useArgoCDAppData = ({ entity }: { entity: Entity }) => {
-  const appName =
-    entity?.metadata.annotations?.[ARGOCD_ANNOTATION_APP_NAME] ?? '';
-  const appSelector =
-    entity?.metadata.annotations?.[ARGOCD_ANNOTATION_APP_SELECTOR] ?? '';
-  const appNamespace =
-    entity?.metadata.annotations?.[ARGOCD_ANNOTATION_APP_NAMESPACE];
-  const projectName =
-    entity?.metadata.annotations?.[ARGOCD_ANNOTATION_PROJECT_NAME];
+  const annotations = entity?.metadata.annotations ?? {};
+  const appName = annotations[ARGOCD_ANNOTATION_APP_NAME] ?? '';
+  const appSelector = annotations[ARGOCD_ANNOTATION_APP_SELECTOR] ?? '';
+  const appNamespace = annotations[ARGOCD_ANNOTATION_APP_NAMESPACE];
+  const appNamespaces = Object.fromEntries(
+    Object.entries(annotations)
+      .filter(
+        ([key, value]) =>
+          key.startsWith(ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX) &&
+          Boolean(value),
+      )
+      .map(([key, value]) => [
+        key.slice(ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX.length),
+        value as string,
+      ]),
+  ) as AppNamespaces;
+  const projectName = annotations[ARGOCD_ANNOTATION_PROJECT_NAME];
   const url =
     entity?.metadata.annotations?.[ARGOCD_ANNOTATION_PROXY_URL] ??
     '/argocd/api';
@@ -41,5 +53,12 @@ export const useArgoCDAppData = ({ entity }: { entity: Entity }) => {
       "Cannot provide both 'argocd/app-name' and 'argocd-app' annotations",
     );
   }
-  return { url, appName, appSelector, appNamespace, projectName };
+  return {
+    url,
+    appName,
+    appSelector,
+    appNamespace,
+    appNamespaces,
+    projectName,
+  };
 };

@@ -21,6 +21,7 @@ const mockUpdateArgoProjectAndApp = jest.fn();
 const mockGetArgoApplicationInfo = jest.fn();
 const mockTerminateArgoAppOperation = jest.fn();
 const mockResyncAppOnAllArgos = jest.fn();
+const mockFindArgoApp = jest.fn();
 const ArgoService = {
   deleteApp: mockDeleteApp,
   deleteProject: mockDeleteProject,
@@ -34,6 +35,7 @@ const ArgoService = {
   getArgoApplicationInfo: mockGetArgoApplicationInfo,
   terminateArgoAppOperation: mockTerminateArgoAppOperation,
   resyncAppOnAllArgos: mockResyncAppOnAllArgos,
+  findArgoApp: mockFindArgoApp,
 };
 jest.mock('./timer.services');
 
@@ -81,6 +83,7 @@ describe('router', () => {
     mockDeleteProject.mockReset();
     mockDeleteApp.mockReset();
     mockGetArgoAppData.mockReset();
+    mockFindArgoApp.mockReset();
   });
 
   it('returns the requested data', async () => {
@@ -116,6 +119,24 @@ describe('router', () => {
       argoAppName: 'test-app-nonprod',
       argoProjectName: 'test-project',
       kubernetesNamespace: 'test-namespace',
+    });
+  });
+
+  it('passes shared and per-instance namespaces to findArgoApp', async () => {
+    mockFindArgoApp.mockResolvedValue([]);
+
+    const response = await request(app).get(
+      '/find/name/test-app?appNamespace=fallback-ns&appNamespace%2FargoInstance1=instance-one-ns&appNamespace%2FargoInstance2=instance-two-ns',
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFindArgoApp).toHaveBeenCalledWith({
+      name: 'test-app',
+      namespace: 'fallback-ns',
+      namespaces: {
+        argoInstance1: 'instance-one-ns',
+        argoInstance2: 'instance-two-ns',
+      },
     });
   });
 
