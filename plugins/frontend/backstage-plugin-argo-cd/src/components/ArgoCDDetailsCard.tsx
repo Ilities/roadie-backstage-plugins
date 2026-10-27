@@ -303,6 +303,7 @@ const ArgoCDDetails = ({
     appSelector,
     appNamespace,
     projectName,
+    annotations: entity.metadata.annotations,
   });
   if (loading) {
     return (

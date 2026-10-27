@@ -19,6 +19,8 @@ import { Entity } from '@backstage/catalog-model';
 export const ARGOCD_ANNOTATION_APP_NAME = 'argocd/app-name';
 export const ARGOCD_ANNOTATION_APP_SELECTOR = 'argocd/app-selector';
 export const ARGOCD_ANNOTATION_APP_NAMESPACE = 'argocd/app-namespace';
+export const getArgoCDAppNamespaceAnnotation = (instanceName: string) =>
+  `${ARGOCD_ANNOTATION_APP_NAMESPACE}/${instanceName}`;
 export const ARGOCD_ANNOTATION_PROJECT_NAME = 'argocd/project-name';
 export const ARGOCD_ANNOTATION_PROXY_URL = 'argocd/proxy-url';
 
@@ -42,4 +44,16 @@ export const useArgoCDAppData = ({ entity }: { entity: Entity }) => {
     );
   }
   return { url, appName, appSelector, appNamespace, projectName };
+};
+
+export const getArgoCDAppNamespace = (
+  annotations: Entity['metadata']['annotations'] | undefined,
+  instanceName?: string,
+) => {
+  const instanceAppNamespace = instanceName
+    ? annotations?.[getArgoCDAppNamespaceAnnotation(instanceName)]
+    : undefined;
+  return (
+    instanceAppNamespace ?? annotations?.[ARGOCD_ANNOTATION_APP_NAMESPACE]
+  );
 };

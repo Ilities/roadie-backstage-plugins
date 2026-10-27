@@ -17,6 +17,8 @@ If you want to create multiple components that fetch data from different argoCD 
 
 The Argo plugin will fetch the Argo CD instances an app is deployed to and use the backstage-plugin-argo-cd-backend plugin to reach out to each Argo instance based on the mapping mentioned below.
 
+For apps using Argo CD's "Applications in any namespace" feature, the frontend supports an instance-specific namespace annotation. Use `argocd/app-namespace/<instance-name>` where `<instance-name>` matches the configured instance name. This allows one catalog entity to use different application namespaces in each Argo CD instance; the generic `argocd/app-namespace` annotation remains the fallback. See the [frontend plugin documentation](https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/frontend/backstage-plugin-argo-cd#support-for-apps-in-any-namespace-beta-feature) for an example.
+
 ```yml
 argocd:
   username: ${ARGOCD_USERNAME}
