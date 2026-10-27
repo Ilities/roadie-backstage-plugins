@@ -419,6 +419,93 @@ describe('argo-cd', () => {
     });
   });
   describe('widget - scan instances', () => {
+    it('uses the namespace annotation matching each Argo CD instance', async () => {
+      const config = new ConfigReader({
+        argocd: {
+          namespacedApps: true,
+          appLocatorMethods: [
+            {
+              type: 'config',
+              instances: [
+                { name: 'argoInstance1', url: 'https://argo1.example.com' },
+                { name: 'argoInstance2', url: 'https://argo2.example.com' },
+              ],
+            },
+          ],
+        },
+      });
+      const namespaceEntity = {
+        ...getEntityStubWithAppNamespace,
+        metadata: {
+          ...getEntityStubWithAppNamespace.metadata,
+          annotations: {
+            ...getEntityStubWithAppNamespace.metadata.annotations,
+            'argocd/app-namespace/argoInstance1': 'instance-one-ns',
+            'argocd/app-namespace/argoInstance2': 'instance-two-ns',
+          },
+        },
+      };
+
+      worker.use(
+        rest.get('*', (req, res, ctx) => {
+          if (req.url.pathname.endsWith('/find/name/namespaced-guestbook')) {
+            return res(
+              ctx.json([
+                { name: 'argoInstance1', url: 'https://argo1.example.com' },
+                { name: 'argoInstance2', url: 'https://argo2.example.com' },
+              ]),
+            );
+          }
+          if (req.url.pathname.includes('/applications/name/')) {
+            const instanceName = req.url.pathname.includes('argoInstance1')
+              ? 'argoInstance1'
+              : 'argoInstance2';
+            expect(req.url.searchParams.get('appNamespace')).toBe(
+              instanceName === 'argoInstance1'
+                ? 'instance-one-ns'
+                : 'instance-two-ns',
+            );
+            return res(ctx.json(getResponseStubNamespaced));
+          }
+          return res(
+            ctx.json({
+              author: 'testuser <testuser@test.com>',
+              date: '2023-03-20T18:44:10Z',
+              message: 'Update README.md',
+            }),
+          );
+        }),
+      );
+
+      const rendered = render(
+        <TestApiProvider
+          apis={[
+            [configApiRef, config],
+            [errorApiRef, errorApiMock],
+            [translationApiRef, mockApis.translation()],
+            [
+              argoCDApiRef,
+              new ArgoCDApiClient({
+                discoveryApi,
+                identityApi: getIdentityApiStub,
+                backendBaseUrl: 'https://testbackend.com',
+                searchInstances: true,
+                useNamespacedApps: true,
+              }),
+            ],
+          ]}
+        >
+          <EntityProvider entity={namespaceEntity}>
+            <ArgoCDDetailsCard />
+          </EntityProvider>
+        </TestApiProvider>,
+      );
+
+      expect(
+        await rendered.findByText('namespaced-guestbook'),
+      ).toBeInTheDocument();
+    });
+
     it('should display fetched data', async () => {
       worker.use(
         rest.get(

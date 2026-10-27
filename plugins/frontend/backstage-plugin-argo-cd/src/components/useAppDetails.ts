@@ -14,26 +14,36 @@
  * limitations under the License.
  */
 
+import { Entity } from '@backstage/catalog-model';
 import { configApiRef, errorApiRef, useApi } from '@backstage/core-plugin-api';
 import useAsyncRetry from 'react-use/esm/useAsyncRetry';
 import { argoCDApiRef } from '../api';
+import { getArgoCDAppNamespace } from './useArgoCDAppData';
 
 export const useAppDetails = ({
   appName,
   appSelector,
   appNamespace,
+  annotations,
   projectName,
   url,
 }: {
   appName?: string;
   appSelector?: string;
   appNamespace?: string;
+  annotations?: Entity['metadata']['annotations'];
   projectName?: string;
   url: string;
 }) => {
   const api = useApi(argoCDApiRef);
   const errorApi = useApi(errorApiRef);
   const configApi = useApi(configApiRef);
+  const instanceNamespaceOverrides = annotations
+    ? Object.entries(annotations)
+        .filter(([key]) => key.startsWith('argocd/app-namespace/'))
+        .map(([key, namespace]) => `${key}:${namespace}`)
+        .join('|')
+    : '';
 
   const { loading, value, error, retry } = useAsyncRetry(async () => {
     const argoSearchMethod: boolean = Boolean(
@@ -46,14 +56,18 @@ export const useAppDetails = ({
       if (argoSearchMethod && appName) {
         const kubeInfo = await api.serviceLocatorUrl({
           appName: appName as string,
-          appNamespace: appNamespace,
+          appNamespace,
         });
         if (kubeInfo instanceof Error) return kubeInfo;
         const promises = kubeInfo.map(async (instance: any) => {
+          const instanceAppNamespace = getArgoCDAppNamespace(
+            annotations,
+            instance.name,
+          );
           const apiOut = await api.getAppDetails({
             url,
             appName,
-            appNamespace,
+            appNamespace: instanceAppNamespace,
             instance: instance.name,
           });
           if (!apiOut.metadata) {
@@ -79,10 +93,14 @@ export const useAppDetails = ({
         });
         if (kubeInfo instanceof Error) return kubeInfo;
         const promises = kubeInfo.map(async (instance: any) => {
+          const instanceAppNamespace = getArgoCDAppNamespace(
+            annotations,
+            instance.name,
+          );
           return api.getAppListDetails({
             url,
             appSelector,
-            appNamespace,
+            appNamespace: instanceAppNamespace,
             instance: instance.name,
           });
         });
@@ -106,7 +124,17 @@ export const useAppDetails = ({
       errorApi.post(new Error('Something went wrong'));
       return Promise.reject(e);
     }
-  });
+  }, [
+    api,
+    errorApi,
+    configApi,
+    appName,
+    appSelector,
+    appNamespace,
+    instanceNamespaceOverrides,
+    projectName,
+    url,
+  ]);
   return {
     loading,
     value,

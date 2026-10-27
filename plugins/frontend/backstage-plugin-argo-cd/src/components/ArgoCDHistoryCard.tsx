@@ -87,6 +87,7 @@ const ArgoCDHistory = ({ entity }: { entity: Entity }) => {
     appSelector,
     appNamespace,
     projectName,
+    annotations: entity.metadata.annotations,
   });
 
   const revisionsToLoad =
