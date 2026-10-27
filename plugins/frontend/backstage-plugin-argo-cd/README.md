@@ -165,6 +165,18 @@ metadata:
     argocd/app-namespace: my-test-ns
 ```
 
+If the same application is deployed to multiple Argo CD instances and the application namespace differs per instance, you can configure an instance-specific annotation using the instance name from `argocd.appLocatorMethods`:
+
+```yaml
+metadata:
+  annotations:
+    argocd/app-selector: <app-selector>
+    argocd/app-namespace/myprod-cluster: prod-mynamespace-gitops
+    argocd/app-namespace/my-non-prod-cluster: npr-mynamespace-gitops
+```
+
+The instance-specific annotation takes precedence for that instance. Instances without an instance-specific annotation fall back to `argocd/app-namespace`, so the existing annotation continues to work as before.
+
 ## Limit the number of revisions to load
 
 The `ArgoCDHistoryCard` loads all app revisions by default. If your app has many revisions, this can lead to a lot of requests and long loading times. Therefore, you can limit the number of revisions to load in your configuration file:

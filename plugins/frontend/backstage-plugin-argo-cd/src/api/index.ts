@@ -50,6 +50,7 @@ export interface ArgoCDApi {
     appName?: string;
     appSelector?: string;
     appNamespace?: string;
+    appNamespaces?: { [instanceName: string]: string };
   }): Promise<ArgoCDServiceList | Error>;
 }
 
@@ -67,6 +68,7 @@ export type Options = {
 };
 
 const APP_NAMESPACE_QUERY_PARAM = 'appNamespace';
+const APP_NAMESPACE_QUERY_PARAM_PREFIX = `${APP_NAMESPACE_QUERY_PARAM}/`;
 
 export class ArgoCDApiClient implements ArgoCDApi {
   private readonly discoveryApi: DiscoveryApi;
@@ -94,7 +96,10 @@ export class ArgoCDApiClient implements ArgoCDApi {
     const result = Object.keys(params)
       .filter(key => params[key] !== undefined)
       .filter(
-        key => key !== APP_NAMESPACE_QUERY_PARAM || this.useNamespacedApps,
+        key =>
+          (!key.startsWith(APP_NAMESPACE_QUERY_PARAM_PREFIX) &&
+            key !== APP_NAMESPACE_QUERY_PARAM) ||
+          this.useNamespacedApps,
       )
       .map(
         k =>
@@ -246,13 +251,23 @@ export class ArgoCDApiClient implements ArgoCDApi {
     appName?: string;
     appSelector?: string;
     appNamespace?: string;
+    appNamespaces?: { [instanceName: string]: string };
   }) {
     if (!options.appName && !options.appSelector) {
       throw new Error('Need to provide appName or appSelector');
     }
     const baseUrl = await this.getBaseUrl();
+    const instanceNamespaces = Object.fromEntries(
+      Object.entries(options.appNamespaces ?? {}).map(
+        ([instanceName, namespace]) => [
+          `${APP_NAMESPACE_QUERY_PARAM_PREFIX}${instanceName}`,
+          namespace,
+        ],
+      ),
+    );
     const query = this.getQueryParams({
       appNamespace: options.appNamespace,
+      ...instanceNamespaces,
     });
     const url = options.appName
       ? `${baseUrl}/find/name/${encodeURIComponent(

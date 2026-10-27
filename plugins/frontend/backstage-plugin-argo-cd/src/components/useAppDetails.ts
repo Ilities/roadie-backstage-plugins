@@ -22,18 +22,23 @@ export const useAppDetails = ({
   appName,
   appSelector,
   appNamespace,
+  appNamespaces,
   projectName,
   url,
 }: {
   appName?: string;
   appSelector?: string;
   appNamespace?: string;
+  appNamespaces?: { [instanceName: string]: string };
   projectName?: string;
   url: string;
 }) => {
   const api = useApi(argoCDApiRef);
   const errorApi = useApi(errorApiRef);
   const configApi = useApi(configApiRef);
+
+  const getAppNamespace = (instanceName?: string) =>
+    (instanceName && appNamespaces?.[instanceName]) || appNamespace;
 
   const { loading, value, error, retry } = useAsyncRetry(async () => {
     const argoSearchMethod: boolean = Boolean(
@@ -46,14 +51,15 @@ export const useAppDetails = ({
       if (argoSearchMethod && appName) {
         const kubeInfo = await api.serviceLocatorUrl({
           appName: appName as string,
-          appNamespace: appNamespace,
+          appNamespace,
+          appNamespaces,
         });
         if (kubeInfo instanceof Error) return kubeInfo;
         const promises = kubeInfo.map(async (instance: any) => {
           const apiOut = await api.getAppDetails({
             url,
             appName,
-            appNamespace,
+            appNamespace: getAppNamespace(instance.name),
             instance: instance.name,
           });
           if (!apiOut.metadata) {
@@ -76,13 +82,14 @@ export const useAppDetails = ({
         const kubeInfo = await api.serviceLocatorUrl({
           appSelector: appSelector as string,
           appNamespace,
+          appNamespaces,
         });
         if (kubeInfo instanceof Error) return kubeInfo;
         const promises = kubeInfo.map(async (instance: any) => {
           return api.getAppListDetails({
             url,
             appSelector,
-            appNamespace,
+            appNamespace: getAppNamespace(instance.name),
             instance: instance.name,
           });
         });
