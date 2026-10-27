@@ -19,8 +19,29 @@ import { Entity } from '@backstage/catalog-model';
 export const ARGOCD_ANNOTATION_APP_NAME = 'argocd/app-name';
 export const ARGOCD_ANNOTATION_APP_SELECTOR = 'argocd/app-selector';
 export const ARGOCD_ANNOTATION_APP_NAMESPACE = 'argocd/app-namespace';
+export const ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX = `${ARGOCD_ANNOTATION_APP_NAMESPACE}/`;
 export const ARGOCD_ANNOTATION_PROJECT_NAME = 'argocd/project-name';
 export const ARGOCD_ANNOTATION_PROXY_URL = 'argocd/proxy-url';
+
+/**
+ * Collects per-instance namespace annotations of the form
+ * `argocd/app-namespace/<instance-name>: <namespace>`, keyed by instance name.
+ */
+export const getAppNamespacesByInstance = (
+  entity: Entity,
+): Record<string, string> => {
+  const annotations = entity?.metadata.annotations ?? {};
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(annotations)) {
+    if (
+      key.startsWith(ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX) &&
+      key.length > ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX.length
+    ) {
+      result[key.slice(ARGOCD_ANNOTATION_APP_NAMESPACE_PREFIX.length)] = value;
+    }
+  }
+  return result;
+};
 
 export const useArgoCDAppData = ({ entity }: { entity: Entity }) => {
   const appName =
@@ -29,6 +50,7 @@ export const useArgoCDAppData = ({ entity }: { entity: Entity }) => {
     entity?.metadata.annotations?.[ARGOCD_ANNOTATION_APP_SELECTOR] ?? '';
   const appNamespace =
     entity?.metadata.annotations?.[ARGOCD_ANNOTATION_APP_NAMESPACE];
+  const appNamespaces = getAppNamespacesByInstance(entity);
   const projectName =
     entity?.metadata.annotations?.[ARGOCD_ANNOTATION_PROJECT_NAME];
   const url =
@@ -41,5 +63,12 @@ export const useArgoCDAppData = ({ entity }: { entity: Entity }) => {
       "Cannot provide both 'argocd/app-name' and 'argocd-app' annotations",
     );
   }
-  return { url, appName, appSelector, appNamespace, projectName };
+  return {
+    url,
+    appName,
+    appSelector,
+    appNamespace,
+    appNamespaces,
+    projectName,
+  };
 };

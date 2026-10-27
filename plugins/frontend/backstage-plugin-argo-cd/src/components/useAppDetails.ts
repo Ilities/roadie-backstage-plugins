@@ -22,12 +22,15 @@ export const useAppDetails = ({
   appName,
   appSelector,
   appNamespace,
+  appNamespaces,
   projectName,
   url,
 }: {
   appName?: string;
   appSelector?: string;
   appNamespace?: string;
+  /** Namespace per Argo CD instance name, from `argocd/app-namespace/<instance>` */
+  appNamespaces?: Record<string, string>;
   projectName?: string;
   url: string;
 }) => {
@@ -39,6 +42,13 @@ export const useAppDetails = ({
     const argoSearchMethod: boolean = Boolean(
       configApi.getOptionalConfigArray('argocd.appLocatorMethods')?.length,
     );
+    // Per-instance namespaces may differ, so the locator cannot filter on one
+    // global namespace. Locate across all namespaces and resolve the namespace
+    // for each instance when fetching its details.
+    const hasInstanceNamespaces = Object.keys(appNamespaces ?? {}).length > 0;
+    const locatorNamespace = hasInstanceNamespaces ? undefined : appNamespace;
+    const namespaceFor = (instanceName?: string) =>
+      (instanceName && appNamespaces?.[instanceName]) || appNamespace;
     try {
       if (!argoSearchMethod && appName) {
         return api.getAppDetails({ url, appName, appNamespace });
@@ -46,14 +56,14 @@ export const useAppDetails = ({
       if (argoSearchMethod && appName) {
         const kubeInfo = await api.serviceLocatorUrl({
           appName: appName as string,
-          appNamespace: appNamespace,
+          appNamespace: locatorNamespace,
         });
         if (kubeInfo instanceof Error) return kubeInfo;
         const promises = kubeInfo.map(async (instance: any) => {
           const apiOut = await api.getAppDetails({
             url,
             appName,
-            appNamespace,
+            appNamespace: namespaceFor(instance.name),
             instance: instance.name,
           });
           if (!apiOut.metadata) {
@@ -75,14 +85,14 @@ export const useAppDetails = ({
       if (argoSearchMethod && appSelector) {
         const kubeInfo = await api.serviceLocatorUrl({
           appSelector: appSelector as string,
-          appNamespace,
+          appNamespace: locatorNamespace,
         });
         if (kubeInfo instanceof Error) return kubeInfo;
         const promises = kubeInfo.map(async (instance: any) => {
           return api.getAppListDetails({
             url,
             appSelector,
-            appNamespace,
+            appNamespace: namespaceFor(instance.name),
             instance: instance.name,
           });
         });
