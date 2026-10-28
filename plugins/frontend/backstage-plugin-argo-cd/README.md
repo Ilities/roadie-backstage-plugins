@@ -165,6 +165,30 @@ metadata:
     argocd/app-namespace: my-test-ns
 ```
 
+### Per-instance app namespaces
+
+When the same application is deployed through multiple Argo CD instances (for
+example an `apps-of-apps` pattern that targets differently named gitops
+namespaces per cluster), you can override the app namespace on a per-instance
+basis by using the `argocd/app-namespace/<instance-name>` annotation. The
+`<instance-name>` must match the `name` of an instance configured in
+`argocd.appLocatorMethods[].instances` and is used when the plugin fans out
+requests to that instance:
+
+```yaml
+metadata:
+  annotations:
+    # Optional default, used when no per-instance override matches.
+    argocd/app-namespace: aoa-default
+    # Per-instance overrides.
+    argocd/app-namespace/myprod-cluster: prod-mynamespace-gitops
+    argocd/app-namespace/my-nonprod-cluster: npr-mynamespace-gitops
+```
+
+The plain `argocd/app-namespace` annotation keeps working as before, and is
+used as the fallback when no instance-specific annotation is set for a given
+Argo CD instance.
+
 ## Limit the number of revisions to load
 
 The `ArgoCDHistoryCard` loads all app revisions by default. If your app has many revisions, this can lead to a lot of requests and long loading times. Therefore, you can limit the number of revisions to load in your configuration file:

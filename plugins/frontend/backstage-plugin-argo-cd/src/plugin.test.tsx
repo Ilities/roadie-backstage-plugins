@@ -42,6 +42,7 @@ import {
   getIdentityApiStub,
   getResponseStubNamespaced,
   getEntityStubWithAppNamespace,
+  getEntityStubWithPerInstanceAppNamespace,
 } from './mocks/mocks';
 import { EntityProvider } from '@backstage/plugin-catalog-react';
 import { translationApiRef } from '@backstage/core-plugin-api/alpha';
@@ -1176,6 +1177,195 @@ describe('argo-cd', () => {
       ).toBeInTheDocument();
       expect(rendered.queryByText('argoInstance1')).toBeNull();
       expect(rendered.queryByText('argoInstance2')).toBeNull();
+    });
+  });
+
+  describe('widget - per-instance app-namespace annotations', () => {
+    const apisScanMultipleInstancesNamespaced: [AnyApiRef, Partial<unknown>][] =
+      [
+        [
+          configApiRef,
+          new ConfigReader({
+            argocd: {
+              namespacedApps: true,
+              appLocatorMethods: [
+                {
+                  type: 'config',
+                  instances: [
+                    {
+                      url: 'https://testrancher.com',
+                      name: 'argoInstance1',
+                    },
+                    {
+                      url: 'https://testranchertwo.com',
+                      name: 'argoInstance2',
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ],
+        [errorApiRef, errorApiMock],
+        [
+          argoCDApiRef,
+          new ArgoCDApiClient({
+            discoveryApi,
+            identityApi: getIdentityApiStub,
+            backendBaseUrl: 'https://testbackend.com',
+            searchInstances: true,
+            useNamespacedApps: true,
+          }),
+        ],
+        [translationApiRef, mockApis.translation()],
+      ];
+
+    it('passes the per-instance namespace from annotations to each Argo instance request', async () => {
+      const observedNamespaces: Record<string, string | null> = {};
+
+      worker.use(
+        rest.get(
+          'https://testbackend.com/api/argocd/find/selector/name%3Dguestbook',
+          (_, res, ctx) =>
+            res(
+              ctx.json([
+                {
+                  name: 'argoInstance1',
+                  url: 'https://argocd-argoInstance1.com',
+                },
+                {
+                  name: 'argoInstance2',
+                  url: 'https://argocd-argoInstance2.com',
+                },
+              ]),
+            ),
+        ),
+        rest.get(
+          'https://testbackend.com/api/argocd/argoInstance/argoInstance1/applications/selector/name%3Dguestbook',
+          (req, res, ctx) => {
+            observedNamespaces.argoInstance1 =
+              req.url.searchParams.get('appNamespace');
+            return res(ctx.json(getResponseStubAppListForInstanceOne));
+          },
+        ),
+        rest.get(
+          'https://testbackend.com/api/argocd/argoInstance/argoInstance2/applications/selector/name%3Dguestbook',
+          (req, res, ctx) => {
+            observedNamespaces.argoInstance2 =
+              req.url.searchParams.get('appNamespace');
+            return res(ctx.json(getResponseStubAppListForInstanceTwo()));
+          },
+        ),
+        rest.get(
+          'https://testbackend.com/api/argocd/argoInstance/:instance/applications/name/:appName/revisions/:revision/metadata',
+          (_, res, ctx) =>
+            res(
+              ctx.json({
+                author: 'testuser <testuser@test.com>',
+                date: '2023-03-20T18:44:10Z',
+                message: 'Update README.md',
+              }),
+            ),
+        ),
+      );
+
+      const rendered = render(
+        <TestApiProvider apis={apisScanMultipleInstancesNamespaced}>
+          <EntityProvider entity={getEntityStubWithPerInstanceAppNamespace}>
+            <ArgoCDDetailsCard />
+          </EntityProvider>
+        </TestApiProvider>,
+      );
+
+      expect(await rendered.findByText('argoInstance1')).toBeInTheDocument();
+      expect(await rendered.findByText('argoInstance2')).toBeInTheDocument();
+
+      expect(observedNamespaces.argoInstance1).toBe('prod-mynamespace-gitops');
+      expect(observedNamespaces.argoInstance2).toBe('npr-mynamespace-gitops');
+    });
+
+    it('falls back to the default app-namespace when no per-instance override matches', async () => {
+      const entityWithPartialOverride = {
+        ...getEntityStubWithPerInstanceAppNamespace,
+        metadata: {
+          ...getEntityStubWithPerInstanceAppNamespace.metadata,
+          annotations: {
+            ...getEntityStubWithPerInstanceAppNamespace.metadata.annotations,
+            // Remove the override for argoInstance2 so the default kicks in.
+            'argocd/app-namespace/argoInstance2':
+              undefined as unknown as string,
+          },
+        },
+      };
+      // Strip the undefined so the entity shape stays clean.
+      delete (
+        entityWithPartialOverride.metadata.annotations as Record<
+          string,
+          string | undefined
+        >
+      )['argocd/app-namespace/argoInstance2'];
+
+      const observedNamespaces: Record<string, string | null> = {};
+
+      worker.use(
+        rest.get(
+          'https://testbackend.com/api/argocd/find/selector/name%3Dguestbook',
+          (_, res, ctx) =>
+            res(
+              ctx.json([
+                {
+                  name: 'argoInstance1',
+                  url: 'https://argocd-argoInstance1.com',
+                },
+                {
+                  name: 'argoInstance2',
+                  url: 'https://argocd-argoInstance2.com',
+                },
+              ]),
+            ),
+        ),
+        rest.get(
+          'https://testbackend.com/api/argocd/argoInstance/argoInstance1/applications/selector/name%3Dguestbook',
+          (req, res, ctx) => {
+            observedNamespaces.argoInstance1 =
+              req.url.searchParams.get('appNamespace');
+            return res(ctx.json(getResponseStubAppListForInstanceOne));
+          },
+        ),
+        rest.get(
+          'https://testbackend.com/api/argocd/argoInstance/argoInstance2/applications/selector/name%3Dguestbook',
+          (req, res, ctx) => {
+            observedNamespaces.argoInstance2 =
+              req.url.searchParams.get('appNamespace');
+            return res(ctx.json(getResponseStubAppListForInstanceTwo()));
+          },
+        ),
+        rest.get(
+          'https://testbackend.com/api/argocd/argoInstance/:instance/applications/name/:appName/revisions/:revision/metadata',
+          (_, res, ctx) =>
+            res(
+              ctx.json({
+                author: 'testuser <testuser@test.com>',
+                date: '2023-03-20T18:44:10Z',
+                message: 'Update README.md',
+              }),
+            ),
+        ),
+      );
+
+      const rendered = render(
+        <TestApiProvider apis={apisScanMultipleInstancesNamespaced}>
+          <EntityProvider entity={entityWithPartialOverride}>
+            <ArgoCDDetailsCard />
+          </EntityProvider>
+        </TestApiProvider>,
+      );
+
+      expect(await rendered.findByText('argoInstance1')).toBeInTheDocument();
+      expect(await rendered.findByText('argoInstance2')).toBeInTheDocument();
+
+      expect(observedNamespaces.argoInstance1).toBe('prod-mynamespace-gitops');
+      expect(observedNamespaces.argoInstance2).toBe('default-ns');
     });
   });
 });

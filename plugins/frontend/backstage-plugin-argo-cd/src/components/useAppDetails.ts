@@ -17,23 +17,27 @@
 import { configApiRef, errorApiRef, useApi } from '@backstage/core-plugin-api';
 import useAsyncRetry from 'react-use/esm/useAsyncRetry';
 import { argoCDApiRef } from '../api';
+import { resolveAppNamespaceForInstance } from './useArgoCDAppData';
 
 export const useAppDetails = ({
   appName,
   appSelector,
   appNamespace,
+  appNamespaces,
   projectName,
   url,
 }: {
   appName?: string;
   appSelector?: string;
   appNamespace?: string;
+  appNamespaces?: Record<string, string>;
   projectName?: string;
   url: string;
 }) => {
   const api = useApi(argoCDApiRef);
   const errorApi = useApi(errorApiRef);
   const configApi = useApi(configApiRef);
+  const perInstanceNamespaces = appNamespaces ?? {};
 
   const { loading, value, error, retry } = useAsyncRetry(async () => {
     const argoSearchMethod: boolean = Boolean(
@@ -50,10 +54,15 @@ export const useAppDetails = ({
         });
         if (kubeInfo instanceof Error) return kubeInfo;
         const promises = kubeInfo.map(async (instance: any) => {
+          const instanceAppNamespace = resolveAppNamespaceForInstance(
+            instance.name,
+            appNamespace,
+            perInstanceNamespaces,
+          );
           const apiOut = await api.getAppDetails({
             url,
             appName,
-            appNamespace,
+            appNamespace: instanceAppNamespace,
             instance: instance.name,
           });
           if (!apiOut.metadata) {
@@ -79,10 +88,15 @@ export const useAppDetails = ({
         });
         if (kubeInfo instanceof Error) return kubeInfo;
         const promises = kubeInfo.map(async (instance: any) => {
+          const instanceAppNamespace = resolveAppNamespaceForInstance(
+            instance.name,
+            appNamespace,
+            perInstanceNamespaces,
+          );
           return api.getAppListDetails({
             url,
             appSelector,
-            appNamespace,
+            appNamespace: instanceAppNamespace,
             instance: instance.name,
           });
         });

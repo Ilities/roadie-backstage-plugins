@@ -51,6 +51,33 @@ export const getEntityStubWithAppNamespace = {
   },
 };
 
+export const getEntityStubWithPerInstanceAppNamespace = {
+  metadata: {
+    namespace: 'default',
+    annotations: {
+      'backstage.io/managed-by-location':
+        'url:https://github.com/mcalus3/sample-service/blob/master/backstage.yaml',
+      'argocd/app-selector': 'name=guestbook',
+      'argocd/app-namespace': 'default-ns',
+      'argocd/app-namespace/argoInstance1': 'prod-mynamespace-gitops',
+      'argocd/app-namespace/argoInstance2': 'npr-mynamespace-gitops',
+    },
+    name: 'sample-service',
+    description:
+      'A service for testing per-instance app-namespace annotation support.',
+    uid: 'e8a73cc9-21d4-449e-b97a-5d3ce0b21324',
+    etag: 'ZmJkOGVkYjktMDM1ZS00YWIzLTkxMWQtMjI5MDk3N2I5M2Rn',
+    generation: 1,
+  },
+  apiVersion: 'backstage.io/v1alpha1',
+  kind: 'Component',
+  spec: {
+    type: 'service',
+    owner: 'david@roadie.io',
+    lifecycle: 'experimental',
+  },
+};
+
 export const getEntityStubWithAppSelector = {
   metadata: {
     namespace: 'default',
